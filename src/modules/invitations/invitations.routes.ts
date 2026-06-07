@@ -1,0 +1,224 @@
+import {
+  createRoute,
+  OpenAPIHono,
+} from '@hono/zod-openapi'
+
+import { requireAuth } from '../../shared/middlewares/auth.middleware'
+import {
+  ApiFailureSchema,
+  jsonResponse,
+} from '../../shared/openapi/schemas'
+import type { AppBindings } from '../../shared/types/context'
+import { readBearerToken } from '../../shared/utils/auth-token'
+import { successResponse } from '../../shared/utils/response'
+import { SupabaseAuthUserGateway } from './invitations.auth'
+import { ResendInvitationMailer } from './invitations.mailer'
+import { SupabaseInvitationRepository } from './invitations.repository'
+import {
+  AcceptInvitationResponseSchema,
+  AcceptInvitationSchema,
+  CancelInvitationResponseSchema,
+  CreateInvitationResponseSchema,
+  CreateInvitationSchema,
+  InvitationIdParamsSchema,
+  ResendInvitationSchema,
+  ValidateInvitationQuerySchema,
+  ValidateInvitationResponseSchema,
+} from './invitations.schemas'
+import { InvitationsService } from './invitations.service'
+
+const errorResponse = (description: string) =>
+  jsonResponse(ApiFailureSchema, description)
+
+const validateRoute = createRoute({
+  method: 'get',
+  path: '/validate',
+  operationId: 'validateInvitation',
+  tags: ['Invitations'],
+  summary: 'Validate an invitation token',
+  request: { query: ValidateInvitationQuerySchema },
+  responses: {
+    200: jsonResponse(
+      ValidateInvitationResponseSchema,
+      'The invitation is valid.',
+    ),
+    404: errorResponse('The invitation is invalid or unavailable.'),
+  },
+})
+
+const createInvitationRoute = createRoute({
+  method: 'post',
+  path: '/',
+  operationId: 'createInvitation',
+  tags: ['Invitations'],
+  summary: 'Create and deliver an invitation',
+  security: [{ BearerAuth: [] }],
+  middleware: [requireAuth] as const,
+  request: {
+    body: {
+      required: true,
+      content: {
+        'application/json': { schema: CreateInvitationSchema },
+      },
+    },
+  },
+  responses: {
+    201: jsonResponse(
+      CreateInvitationResponseSchema,
+      'The invitation was created.',
+    ),
+    401: errorResponse('Authentication is required.'),
+    403: errorResponse('The actor cannot create this invitation.'),
+    409: errorResponse('A pending invitation already exists.'),
+    422: errorResponse('The request is invalid.'),
+  },
+})
+
+const acceptRoute = createRoute({
+  method: 'post',
+  path: '/accept',
+  operationId: 'acceptInvitation',
+  tags: ['Invitations'],
+  summary: 'Accept an invitation and create the user account',
+  description:
+    'Uses an existing Bearer session when present. Otherwise password and fullName are required to create a new account.',
+  security: [{ BearerAuth: [] }, {}],
+  request: {
+    body: {
+      required: true,
+      content: {
+        'application/json': { schema: AcceptInvitationSchema },
+      },
+    },
+  },
+  responses: {
+    200: jsonResponse(
+      AcceptInvitationResponseSchema,
+      'The invitation was accepted.',
+    ),
+    404: errorResponse('The invitation is invalid or unavailable.'),
+    403: errorResponse('The authenticated user email does not match.'),
+    409: errorResponse('The invitation or account cannot be accepted.'),
+    410: errorResponse('The invitation has expired.'),
+    422: errorResponse('The request is invalid.'),
+  },
+})
+
+const cancelRoute = createRoute({
+  method: 'post',
+  path: '/{id}/cancel',
+  operationId: 'cancelInvitation',
+  tags: ['Invitations'],
+  summary: 'Cancel a pending invitation',
+  security: [{ BearerAuth: [] }],
+  middleware: [requireAuth] as const,
+  request: { params: InvitationIdParamsSchema },
+  responses: {
+    200: jsonResponse(
+      CancelInvitationResponseSchema,
+      'The invitation was cancelled.',
+    ),
+    401: errorResponse('Authentication is required.'),
+    403: errorResponse('The actor cannot cancel this invitation.'),
+    404: errorResponse('The invitation was not found.'),
+    409: errorResponse('The invitation is no longer pending.'),
+  },
+})
+
+const resendRoute = createRoute({
+  method: 'post',
+  path: '/{id}/resend',
+  operationId: 'resendInvitation',
+  tags: ['Invitations'],
+  summary: 'Rotate and resend a pending invitation token',
+  security: [{ BearerAuth: [] }],
+  middleware: [requireAuth] as const,
+  request: {
+    params: InvitationIdParamsSchema,
+    body: {
+      required: true,
+      content: {
+        'application/json': { schema: ResendInvitationSchema },
+      },
+    },
+  },
+  responses: {
+    200: jsonResponse(
+      CreateInvitationResponseSchema,
+      'The invitation was resent.',
+    ),
+    401: errorResponse('Authentication is required.'),
+    403: errorResponse('The actor cannot resend this invitation.'),
+    404: errorResponse('The invitation was not found.'),
+    409: errorResponse('The invitation is no longer pending.'),
+  },
+})
+
+function createService(c: {
+  env: AppBindings['Bindings']
+  get: <Key extends keyof AppBindings['Variables']>(
+    key: Key,
+  ) => AppBindings['Variables'][Key]
+}): InvitationsService {
+  return new InvitationsService({
+    auth: new SupabaseAuthUserGateway(c.env, c.get('adminSupabase')),
+    mailer: new ResendInvitationMailer(c.env),
+    repository: new SupabaseInvitationRepository(c.env),
+  })
+}
+
+export const invitationsRoutes = new OpenAPIHono<AppBindings>()
+
+invitationsRoutes.openapi(validateRoute, async (c) => {
+  const result = await createService(c).validate(c.req.valid('query').token)
+  return successResponse(c, result, 200)
+})
+
+invitationsRoutes.openapi(createInvitationRoute, async (c) => {
+  const payload = c.req.valid('json')
+  const result = await createService(c).create({
+    actorUserId: c.get('user').id,
+    email: payload.email,
+    type: payload.type,
+    roleIds: payload.roleIds,
+    locationIds: payload.locationIds,
+    expiresInDays: payload.expiresInDays,
+    ...(payload.platformRole
+      ? { platformRole: payload.platformRole }
+      : {}),
+    ...(payload.organizationId
+      ? { organizationId: payload.organizationId }
+      : {}),
+    ...(payload.newOrganization
+      ? { newOrganization: payload.newOrganization }
+      : {}),
+  })
+  return successResponse(c, result, 201)
+})
+
+invitationsRoutes.openapi(acceptRoute, async (c) => {
+  const payload = c.req.valid('json')
+  const result = await createService(c).accept(
+    {
+      token: payload.token,
+      ...(payload.password ? { password: payload.password } : {}),
+      ...(payload.fullName ? { fullName: payload.fullName } : {}),
+    },
+    readBearerToken(c.req.header('authorization')),
+  )
+  return successResponse(c, result, 200)
+})
+
+invitationsRoutes.openapi(cancelRoute, async (c) => {
+  await createService(c).cancel(c.get('user').id, c.req.valid('param').id)
+  return successResponse(c, { cancelled: true as const }, 200)
+})
+
+invitationsRoutes.openapi(resendRoute, async (c) => {
+  const result = await createService(c).resend(
+    c.get('user').id,
+    c.req.valid('param').id,
+    c.req.valid('json').expiresInDays,
+  )
+  return successResponse(c, result, 200)
+})

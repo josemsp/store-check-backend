@@ -1,0 +1,42 @@
+{
+  "name": "store-check-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "cf-typegen": "wrangler types",
+    "db:start": "supabase start",
+    "db:reset": "supabase db reset",
+    "db:lint": "supabase db lint --local",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "pnpm run lint && pnpm run typecheck && pnpm run test",
+    "supabase:types": "npx --yes supabase@latest gen types typescript --project-id bjldwsbwotplhaagipiu --schema public > src/shared/supabase/types.ts"
+  },
+  "dependencies": {
+    "@hono/swagger-ui": "0.6.1",
+    "@hono/zod-openapi": "1.4.0",
+    "@supabase/supabase-js": "2.107.0",
+    "hono": "4.12.23",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20260607.1",
+    "@eslint/js": "10.0.1",
+    "eslint": "10.4.1",
+    "supabase": "2.105.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.60.1",
+    "vitest": "4.1.8",
+    "wrangler": "4.98.0"
+  },
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=10.15.0"
+  },
+  "packageManager": "pnpm@10.15.0"
+}
