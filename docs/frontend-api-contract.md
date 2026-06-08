@@ -51,5 +51,10 @@ Los archivos generados no se editan manualmente. Cuando cambie un endpoint:
 - Los schemas reutilizables tienen nombre OpenAPI.
 - Las respuestas usan `{ success, data, meta }`.
 - Los errores usan `{ success, error, meta }`.
+- Todas las propiedades de las respuestas HTTP usan `snake_case`, incluyendo
+  objetos anidados, errores y metadata.
+- Ejemplos: `request_id`, `organization_id`, `created_at`, `page_size`.
+- El dominio y la implementacion TypeScript pueden conservar `camelCase`; los
+  helpers de respuesta convierten las claves recursivamente en el limite HTTP.
 - Las rutas privadas declaran `BearerAuth`.
 - Los cambios incompatibles requieren una nueva version de API.

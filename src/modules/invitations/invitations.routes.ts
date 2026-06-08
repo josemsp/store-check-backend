@@ -163,7 +163,7 @@ function createService(c: {
   return new InvitationsService({
     auth: new SupabaseAuthUserGateway(c.env, c.get('adminSupabase')),
     mailer: new ResendInvitationMailer(c.env),
-    repository: new SupabaseInvitationRepository(c.env),
+    repository: new SupabaseInvitationRepository(c.get('adminSupabase')),
   })
 }
 

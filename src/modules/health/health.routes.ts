@@ -39,7 +39,7 @@ healthRoutes.openapi(getHealthRoute, async (c) => {
   try {
     const { error } = await c
       .get("adminSupabase")
-      .from("healthcheck")
+      .from("profiles")
       .select("id")
       .limit(1);
 

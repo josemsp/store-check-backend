@@ -1,175 +1,91 @@
-import { z } from '@hono/zod-openapi'
+import { z } from "@hono/zod-openapi";
 
-import { AppError } from '../../shared/errors/app-error'
-import { ErrorCode } from '../../shared/errors/error-codes'
-import type { Env } from '../../shared/types/env'
-import type { InvitationRepository } from './invitations.ports'
+import { AppError } from "../../shared/errors/app-error";
+import { ErrorCode } from "../../shared/errors/error-codes";
+import { createAdminSupabaseClient } from "../../shared/supabase/admin";
+import type { InvitationRepository } from "./invitations.ports";
 import {
-  AcceptedInvitationSchema,
-  InvitationPreviewSchema,
-  InvitationSummarySchema,
-} from './invitations.schemas'
+  AcceptInvitationInput,
+  CancelInvitationInput,
+  CreateInvitationInput,
+  ResendInvitationInput,
+} from "./invitations.types";
 
 const RpcErrorSchema = z.object({
   message: z.string().optional(),
   details: z.string().nullable().optional(),
   hint: z.string().nullable().optional(),
   code: z.string().optional(),
-})
-
-const RpcInvitationPreviewSchema = z.object({
-  email: z.email(),
-  type: z.enum(['PLATFORM', 'ORGANIZATION', 'NEW_ORGANIZATION']),
-  organization_name: z.string().nullable(),
-  expires_at: z.iso.datetime(),
-})
-
-const RpcInvitationSummarySchema = RpcInvitationPreviewSchema.extend({
-  id: z.uuid(),
-  status: z.literal('PENDING'),
-  created_at: z.iso.datetime(),
-})
-
-const RpcAcceptedInvitationSchema = z.object({
-  user_id: z.uuid(),
-  invitation_id: z.uuid(),
-  organization_id: z.uuid().nullable(),
-  type: z.enum(['PLATFORM', 'ORGANIZATION', 'NEW_ORGANIZATION']),
-  accepted_at: z.iso.datetime(),
-})
+});
 
 export class SupabaseInvitationRepository implements InvitationRepository {
-  constructor(private readonly env: Env) {}
+  constructor(
+    private readonly supabase: ReturnType<typeof createAdminSupabaseClient>,
+  ) {}
 
   async validate(tokenHash: string) {
-    const result = await this.rpc(
-      'validate_invitation',
-      { p_token_hash: tokenHash },
-      RpcInvitationPreviewSchema.nullable(),
-    )
+    const { data, error } = await this.supabase.rpc("validate_invitation", {
+      p_token_hash: tokenHash,
+    });
 
-    return result
-      ? InvitationPreviewSchema.parse({
-          email: result.email,
-          type: result.type,
-          organizationName: result.organization_name,
-          expiresAt: result.expires_at,
-        })
-      : null
-  }
-
-  async create(input: Parameters<InvitationRepository['create']>[0]) {
-    const result = await this.rpc(
-      'create_invitation',
-      {
-        p_actor_user_id: input.actorUserId,
-        p_email: input.email.toLowerCase(),
-        p_type: input.type,
-        p_organization_id: input.organizationId ?? null,
-        p_role_ids: input.roleIds,
-        p_location_ids: input.locationIds,
-        p_platform_role: input.platformRole ?? null,
-        p_new_organization: input.newOrganization ?? null,
-        p_token_hash: input.tokenHash,
-        p_expires_at: input.expiresAt,
-      },
-      RpcInvitationSummarySchema,
-    )
-
-    return this.toSummary(result)
-  }
-
-  async accept(input: Parameters<InvitationRepository['accept']>[0]) {
-    const result = await this.rpc(
-      'accept_invitation',
-      {
-        p_token_hash: input.tokenHash,
-        p_user_id: input.userId,
-        p_full_name: input.fullName,
-      },
-      RpcAcceptedInvitationSchema,
-    )
-
-    return AcceptedInvitationSchema.parse({
-      userId: result.user_id,
-      invitationId: result.invitation_id,
-      organizationId: result.organization_id,
-      type: result.type,
-      acceptedAt: result.accepted_at,
-    })
-  }
-
-  async cancel(
-    input: Parameters<InvitationRepository['cancel']>[0],
-  ): Promise<void> {
-    await this.rpc(
-      'cancel_invitation',
-      {
-        p_actor_user_id: input.actorUserId,
-        p_invitation_id: input.invitationId,
-      },
-      z.boolean(),
-    )
-  }
-
-  async resend(input: Parameters<InvitationRepository['resend']>[0]) {
-    const result = await this.rpc(
-      'resend_invitation',
-      {
-        p_actor_user_id: input.actorUserId,
-        p_invitation_id: input.invitationId,
-        p_token_hash: input.tokenHash,
-        p_expires_at: input.expiresAt,
-      },
-      RpcInvitationSummarySchema,
-    )
-
-    return this.toSummary(result)
-  }
-
-  private toSummary(result: z.infer<typeof RpcInvitationSummarySchema>) {
-    return InvitationSummarySchema.parse({
-      id: result.id,
-      email: result.email,
-      type: result.type,
-      status: result.status,
-      organizationName: result.organization_name,
-      expiresAt: result.expires_at,
-      createdAt: result.created_at,
-    })
-  }
-
-  private async rpc<TSchema extends z.ZodType>(
-    functionName: string,
-    body: Record<string, unknown>,
-    schema: TSchema,
-  ): Promise<z.infer<TSchema>> {
-    const response = await fetch(
-      `${this.env.SUPABASE_URL}/rest/v1/rpc/${functionName}`,
-      {
-        method: 'POST',
-        headers: {
-          apikey: this.env.SUPABASE_SERVICE_ROLE_KEY,
-          Authorization: `Bearer ${this.env.SUPABASE_SERVICE_ROLE_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
-      },
-    )
-    const payload: unknown = await response.json()
-
-    if (!response.ok) {
-      this.throwRpcError(payload)
+    if (error) {
+      throw this.throwRpcError(error);
     }
 
-    return schema.parse(payload)
+    const result = data?.[0];
+
+    return result ?? null;
+  }
+
+  async create(input: CreateInvitationInput) {
+    const { data, error } = await this.supabase.rpc("create_invitation", input);
+
+    if (error) {
+      throw this.throwRpcError(error);
+    }
+
+    const result = data?.[0];
+
+    return result ?? null;
+  }
+
+  async accept(input: AcceptInvitationInput) {
+    const { data, error } = await this.supabase.rpc("accept_invitation", input);
+
+    if (error) {
+      throw this.throwRpcError(error);
+    }
+
+    const result = data?.[0];
+
+    return result ?? null;
+  }
+
+  async cancel(input: CancelInvitationInput): Promise<void> {
+    const { error } = await this.supabase.rpc("cancel_invitation", input);
+
+    if (error) {
+      throw this.throwRpcError(error);
+    }
+  }
+
+  async resend(input: ResendInvitationInput) {
+    const { data, error } = await this.supabase.rpc("resend_invitation", input);
+
+    if (error) {
+      throw this.throwRpcError(error);
+    }
+
+    const result = data?.[0];
+
+    return result ?? null;
   }
 
   private throwRpcError(payload: unknown): never {
-    const parsed = RpcErrorSchema.safeParse(payload)
+    const parsed = RpcErrorSchema.safeParse(payload);
     const message = parsed.success
-      ? (parsed.data.message ?? 'Invitation operation failed.')
-      : 'Invitation operation failed.'
+      ? (parsed.data.message ?? "Invitation operation failed.")
+      : "Invitation operation failed.";
 
     const knownErrors = {
       INVITATION_ALREADY_ACCEPTED: [409, ErrorCode.INVITATION_ALREADY_ACCEPTED],
@@ -187,21 +103,21 @@ export class SupabaseInvitationRepository implements InvitationRepository {
       INVALID_ROLE: [422, ErrorCode.VALIDATION_ERROR],
       ROLE_REQUIRED: [422, ErrorCode.VALIDATION_ERROR],
       FORBIDDEN: [403, ErrorCode.FORBIDDEN],
-    } as const
+    } as const;
     const match = Object.entries(knownErrors).find(([key]) =>
       message.includes(key),
-    )
+    );
 
     if (match) {
-      const [, [status, code]] = match
-      throw new AppError({ code, message, status })
+      const [, [status, code]] = match;
+      throw new AppError({ code, message, status });
     }
 
     throw new AppError({
       code: ErrorCode.INTERNAL_ERROR,
-      message: 'The invitation operation could not be completed.',
+      message: "The invitation operation could not be completed.",
       status: 500,
       details: parsed.success ? parsed.data.code : undefined,
-    })
+    });
   }
 }

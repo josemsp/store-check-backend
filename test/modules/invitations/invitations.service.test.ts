@@ -40,9 +40,10 @@ describe('InvitationsService', () => {
   it('validates a raw token through its hash and returns only safe data', async () => {
     const validate = vi.fn().mockResolvedValue({
       email: 'owner@example.com',
-      expiresAt: '2026-06-14T00:00:00.000Z',
-      organizationName: 'Store Check',
-      type: 'NEW_ORGANIZATION',
+      expires_at: '2026-06-14T00:00:00.000Z',
+      organization_name: 'Store Check',
+      scope: 'NEW_ORGANIZATION',
+      valid: true,
     })
     const service = new InvitationsService({
       auth: createAuthGateway(),
@@ -59,8 +60,8 @@ describe('InvitationsService', () => {
     expect(validate).not.toHaveBeenCalledWith('raw-secret-token')
     expect(result).toEqual({
       email: 'owner@example.com',
-      expiresAt: '2026-06-14T00:00:00.000Z',
-      organizationName: 'Store Check',
+      expires_at: '2026-06-14T00:00:00.000Z',
+      organization_name: 'Store Check',
       type: 'NEW_ORGANIZATION',
     })
   })
@@ -85,9 +86,10 @@ describe('InvitationsService', () => {
         ),
       validate: vi.fn().mockResolvedValue({
         email: 'employee@example.com',
-        expiresAt: '2026-06-14T00:00:00.000Z',
-        organizationName: 'Store Check',
-        type: 'ORGANIZATION',
+        expires_at: '2026-06-14T00:00:00.000Z',
+        organization_name: 'Store Check',
+        scope: 'ORGANIZATION',
+        valid: true,
       }),
     })
     const service = new InvitationsService({
@@ -110,11 +112,11 @@ describe('InvitationsService', () => {
     const createUser = vi.fn<AuthUserGateway['createUser']>()
     const deleteUser = vi.fn<AuthUserGateway['deleteUser']>()
     const accept = vi.fn<InvitationRepository['accept']>().mockResolvedValue({
-      userId: 'user-id',
-      invitationId: 'invitation-id',
-      organizationId: 'organization-id',
-      type: 'ORGANIZATION',
-      acceptedAt: '2026-06-07T00:00:00.000Z',
+      user_id: 'user-id',
+      invitation_id: 'invitation-id',
+      organization_id: 'organization-id',
+      scope: 'ORGANIZATION',
+      accepted_at: '2026-06-07T00:00:00.000Z',
     })
     const service = new InvitationsService({
       auth: createAuthGateway({
@@ -131,9 +133,10 @@ describe('InvitationsService', () => {
         accept,
         validate: vi.fn().mockResolvedValue({
           email: 'employee@example.com',
-          expiresAt: '2026-06-14T00:00:00.000Z',
-          organizationName: 'Second Organization',
-          type: 'ORGANIZATION',
+          expires_at: '2026-06-14T00:00:00.000Z',
+          organization_name: 'Second Organization',
+          scope: 'ORGANIZATION',
+          valid: true,
         }),
       }),
     })
@@ -147,10 +150,10 @@ describe('InvitationsService', () => {
     expect(deleteUser).not.toHaveBeenCalled()
     const acceptedInput = accept.mock.calls[0]?.[0]
 
-    expect(acceptedInput?.tokenHash).toMatch(/^[a-f0-9]{64}$/u)
+    expect(acceptedInput?.p_token_hash).toMatch(/^[a-f0-9]{64}$/u)
     expect(acceptedInput).toMatchObject({
-      userId: 'user-id',
-      fullName: 'Existing User',
+      p_user_id: 'user-id',
+      p_full_name: 'Existing User',
     })
   })
 
@@ -161,9 +164,10 @@ describe('InvitationsService', () => {
       repository: createRepository({
         validate: vi.fn().mockResolvedValue({
           email: 'employee@example.com',
-          expiresAt: '2026-06-14T00:00:00.000Z',
-          organizationName: 'Store Check',
-          type: 'ORGANIZATION',
+          expires_at: '2026-06-14T00:00:00.000Z',
+          organization_name: 'Store Check',
+          scope: 'ORGANIZATION',
+          valid: true,
         }),
       }),
     })
@@ -180,12 +184,12 @@ describe('InvitationsService', () => {
     const create = vi.fn<InvitationRepository['create']>().mockResolvedValue({
       id: 'invitation-id',
       email: 'owner@example.com',
-      expiresAt: '2026-06-14T00:00:00.000Z',
-      organizationName: 'New Store',
-      type: 'NEW_ORGANIZATION',
+      expires_at: '2026-06-14T00:00:00.000Z',
+      organization_name: 'New Store',
+      scope: 'NEW_ORGANIZATION',
       status: 'PENDING',
-      createdAt: '2026-06-07T00:00:00.000Z',
-    })
+      created_at: '2026-06-07T00:00:00.000Z',
+    } as any)
     const sendInvitation = vi.fn().mockResolvedValue(undefined)
     const service = new InvitationsService({
       auth: createAuthGateway(),
@@ -210,8 +214,8 @@ describe('InvitationsService', () => {
 
     const persistedInvitation = create.mock.calls[0]?.[0]
 
-    expect(persistedInvitation?.tokenHash).toMatch(/^[a-f0-9]{64}$/u)
-    expect(persistedInvitation?.expiresAt).toBe(
+    expect(persistedInvitation?.p_token_hash).toMatch(/^[a-f0-9]{64}$/u)
+    expect(persistedInvitation?.p_expires_at).toBe(
       '2026-06-14T00:00:00.000Z',
     )
     expect(create).not.toHaveBeenCalledWith(
@@ -241,12 +245,12 @@ describe('InvitationsService', () => {
         create: vi.fn().mockResolvedValue({
           id: 'invitation-id',
           email: 'owner@example.com',
-          expiresAt: '2026-06-14T00:00:00.000Z',
-          organizationName: 'New Store',
-          type: 'NEW_ORGANIZATION',
+          expires_at: '2026-06-14T00:00:00.000Z',
+          organization_name: 'New Store',
+          scope: 'NEW_ORGANIZATION',
           status: 'PENDING',
-          createdAt: '2026-06-07T00:00:00.000Z',
-        }),
+          created_at: '2026-06-07T00:00:00.000Z',
+        } as any),
       }),
     })
 
@@ -265,8 +269,8 @@ describe('InvitationsService', () => {
       }),
     ).rejects.toThrow('Email provider unavailable')
     expect(cancel).toHaveBeenCalledWith({
-      actorUserId: 'admin-id',
-      invitationId: 'invitation-id',
+      p_invited_by_user_id: 'admin-id',
+      p_invitation_id: 'invitation-id',
     })
   })
 })

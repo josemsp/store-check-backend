@@ -34,7 +34,7 @@ describe('application', () => {
         status: 'ok',
       },
       meta: {
-        requestId: 'request-123',
+        request_id: 'request-123',
       },
     })
     const databaseRequest = databaseFetch.mock.calls[0]
@@ -71,7 +71,7 @@ describe('application', () => {
         message: 'The database is unavailable.',
       },
       meta: {
-        requestId: 'request-503',
+        request_id: 'request-503',
       },
     })
   })

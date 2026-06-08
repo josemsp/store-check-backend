@@ -6,15 +6,15 @@ export const PaginationMetaSchema = z
       description: 'Current page number.',
       example: 1,
     }),
-    pageSize: z.number().int().positive().openapi({
+    page_size: z.number().int().positive().openapi({
       description: 'Maximum number of items per page.',
       example: 20,
     }),
-    totalItems: z.number().int().nonnegative().openapi({
+    total_items: z.number().int().nonnegative().openapi({
       description: 'Total number of matching items.',
       example: 42,
     }),
-    totalPages: z.number().int().nonnegative().openapi({
+    total_pages: z.number().int().nonnegative().openapi({
       description: 'Total number of available pages.',
       example: 3,
     }),
@@ -23,7 +23,7 @@ export const PaginationMetaSchema = z
 
 export const ResponseMetaSchema = z
   .object({
-    requestId: z.string().openapi({
+    request_id: z.string().openapi({
       description: 'Request correlation identifier.',
       example: '7ed8c8a8-e6f4-46dc-9d7a-3599bcf858d4',
     }),

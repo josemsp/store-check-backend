@@ -35,6 +35,11 @@ documentacion interactiva en `GET /docs`. El frontend debe generar sus clientes
 y tipos desde esta especificacion con Orval. Consulta
 `docs/frontend-api-contract.md`.
 
+Todas las propiedades de las respuestas HTTP usan `snake_case`, por ejemplo
+`request_id`, `organization_id`, `created_at` y `page_size`. El codigo interno
+TypeScript conserva `camelCase`; los helpers compartidos convierten las claves
+recursivamente al construir la respuesta.
+
 El flujo de registro por invitacion, sus variables de correo y el bootstrap
 inicial de ROOT estan documentados en `docs/invitations.md`.
 

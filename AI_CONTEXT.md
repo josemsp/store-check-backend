@@ -170,7 +170,11 @@ Convenciones:
 - Cada operacion tiene un `operationId` unico y estable.
 - Respuesta exitosa: `{ success: true, data, meta }`.
 - Error: `{ success: false, error, meta }`.
-- `meta.requestId` permite correlacion.
+- Todas las propiedades de responses HTTP usan `snake_case`, incluidos objetos
+  anidados, errores y metadata.
+- `meta.request_id` permite correlacion.
+- El dominio TypeScript conserva `camelCase`; `successResponse` y
+  `errorResponse` convierten recursivamente las claves en el limite HTTP.
 - Las rutas privadas declaran `BearerAuth`.
 - Los schemas reutilizables deben tener nombre OpenAPI.
 - Cambios incompatibles requieren nueva version de API.

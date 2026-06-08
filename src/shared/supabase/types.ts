@@ -3204,12 +3204,27 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_invitation: {
+        Args: { p_full_name: string; p_token_hash: string; p_user_id: string }
+        Returns: {
+          accepted_at: string
+          invitation_id: string
+          organization_id: string
+          scope: Database["public"]["Enums"]["invitation_scope"]
+          user_id: string
+        }[]
+      }
+      bootstrap_platform_root: { Args: { p_user_id: string }; Returns: boolean }
       can_access_location: {
         Args: { target_location_id: string }
         Returns: boolean
       }
       can_invite_to_organization: {
         Args: { target_organization_id: string }
+        Returns: boolean
+      }
+      can_invite_user: {
+        Args: { p_organization_id: string; p_user_id: string }
         Returns: boolean
       }
       can_manage_roles: {
@@ -3220,6 +3235,43 @@ export type Database = {
         Args: { target_organization_id: string }
         Returns: boolean
       }
+      cancel_invitation: {
+        Args: { p_invitation_id: string; p_invited_by_user_id: string }
+        Returns: boolean
+      }
+      create_invitation: {
+        Args: {
+          p_email: string
+          p_expires_at: string
+          p_invited_by_user_id: string
+          p_location_ids?: string[]
+          p_new_organization?: Json
+          p_organization_id?: string
+          p_platform_role?: Database["public"]["Enums"]["platform_admin_role"]
+          p_role_ids?: string[]
+          p_scope: Database["public"]["Enums"]["invitation_scope"]
+          p_token_hash: string
+        }
+        Returns: {
+          accepted_at: string
+          accepted_by_user_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by_user_id: string
+          location_ids: string[]
+          metadata: Json
+          organization_id: string
+          organization_name: string
+          organization_slug: string
+          platform_role: Database["public"]["Enums"]["platform_admin_role"]
+          role_ids: string[]
+          scope: Database["public"]["Enums"]["invitation_scope"]
+          status: Database["public"]["Enums"]["invitation_status"]
+          updated_at: string
+        }[]
+      }
       current_user_id: { Args: never; Returns: string }
       get_member_id: {
         Args: { target_organization_id: string }
@@ -3228,6 +3280,36 @@ export type Database = {
       has_permission: {
         Args: { permission_key: string; target_organization_id: string }
         Returns: boolean
+      }
+      has_user_permission: {
+        Args: {
+          p_organization_id: string
+          p_permission_key: string
+          p_user_id: string
+        }
+        Returns: boolean
+      }
+      invitation_summary: {
+        Args: { p_invitation_id: string }
+        Returns: {
+          accepted_at: string
+          accepted_by_user_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by_user_id: string
+          location_ids: string[]
+          metadata: Json
+          organization_id: string
+          organization_name: string
+          organization_slug: string
+          platform_role: Database["public"]["Enums"]["platform_admin_role"]
+          role_ids: string[]
+          scope: Database["public"]["Enums"]["invitation_scope"]
+          status: Database["public"]["Enums"]["invitation_status"]
+          updated_at: string
+        }[]
       }
       is_org_member: {
         Args: { target_organization_id: string }
@@ -3242,8 +3324,51 @@ export type Database = {
         Returns: boolean
       }
       is_platform_admin: { Args: never; Returns: boolean }
+      is_platform_admin_user: { Args: { p_user_id: string }; Returns: boolean }
       is_root: { Args: never; Returns: boolean }
+      is_root_user: { Args: { p_user_id: string }; Returns: boolean }
+      resend_invitation: {
+        Args: {
+          p_expires_at: string
+          p_invitation_id: string
+          p_invited_by_user_id: string
+          p_token_hash: string
+        }
+        Returns: {
+          accepted_at: string
+          accepted_by_user_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by_user_id: string
+          location_ids: string[]
+          metadata: Json
+          organization_id: string
+          organization_name: string
+          organization_slug: string
+          platform_role: Database["public"]["Enums"]["platform_admin_role"]
+          role_ids: string[]
+          scope: Database["public"]["Enums"]["invitation_scope"]
+          status: Database["public"]["Enums"]["invitation_status"]
+          updated_at: string
+        }[]
+      }
+      seed_organization_defaults: {
+        Args: { p_organization_id: string }
+        Returns: string
+      }
       storage_org_id_from_path: { Args: { path: string }; Returns: string }
+      validate_invitation: {
+        Args: { p_token_hash: string }
+        Returns: {
+          email: string
+          expires_at: string
+          organization_name: string
+          scope: Database["public"]["Enums"]["invitation_scope"]
+          valid: boolean
+        }[]
+      }
     }
     Enums: {
       audit_action:

@@ -5,21 +5,39 @@ import type { AppBindings } from '../types/context'
 
 export interface PaginationMeta {
   page: number
-  pageSize: number
-  totalItems: number
-  totalPages: number
+  page_size: number
+  total_items: number
+  total_pages: number
 }
 
 interface SuccessResponseOptions {
   pagination?: PaginationMeta
 }
 
+type SnakeCase<Key extends string> =
+  Key extends `${infer Character}${infer Rest}`
+    ? Character extends Lowercase<Character>
+      ? `${Character}${SnakeCase<Rest>}`
+      : `_${Lowercase<Character>}${SnakeCase<Rest>}`
+    : Key
+
+export type SnakeCaseKeys<Value> =
+  Value extends readonly (infer Item)[]
+    ? SnakeCaseKeys<Item>[]
+    : Value extends object
+      ? {
+          [Key in keyof Value as Key extends string
+            ? SnakeCase<Key>
+            : Key]: SnakeCaseKeys<Value[Key]>
+        }
+      : Value
+
 export interface ApiSuccess<T> {
   success: true
-  data: T
+  data: SnakeCaseKeys<T>
   meta: {
     pagination?: PaginationMeta
-    requestId: string
+    request_id: string
   }
 }
 
@@ -31,8 +49,31 @@ export interface ApiFailure {
     details?: unknown
   }
   meta: {
-    requestId: string
+    request_id: string
   }
+}
+
+function toSnakeCase(value: string): string {
+  return value.replace(/[A-Z]/gu, (character) => `_${character.toLowerCase()}`)
+}
+
+function snakeCaseKeys<Value>(value: Value): SnakeCaseKeys<Value> {
+  if (Array.isArray(value)) {
+    const items = value as unknown[]
+    return items.map((item) => snakeCaseKeys(item)) as SnakeCaseKeys<Value>
+  }
+
+  if (value !== null && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    return Object.fromEntries(
+      Object.entries(record).map(([key, item]) => [
+        toSnakeCase(key),
+        snakeCaseKeys(item),
+      ]),
+    ) as SnakeCaseKeys<Value>
+  }
+
+  return value as SnakeCaseKeys<Value>
 }
 
 export function successResponse<
@@ -47,9 +88,9 @@ export function successResponse<
   return c.json<ApiSuccess<T>, Status>(
     {
       success: true,
-      data,
+      data: snakeCaseKeys(data),
       meta: {
-        requestId: c.get('requestId'),
+        request_id: c.get('requestId'),
         ...(options.pagination
           ? { pagination: options.pagination }
           : {}),
@@ -72,9 +113,11 @@ export function errorResponse<Status extends ContentfulStatusCode>(
       error: {
         code,
         message,
-        ...(details === undefined ? {} : { details }),
+        ...(details === undefined
+          ? {}
+          : { details: snakeCaseKeys(details) }),
       },
-      meta: { requestId: c.get('requestId') },
+      meta: { request_id: c.get('requestId') },
     },
     status,
   )

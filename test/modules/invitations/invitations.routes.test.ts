@@ -10,12 +10,15 @@ afterEach(() => {
 describe('invitation HTTP contract', () => {
   it('validates an invitation using the public endpoint', async () => {
     const rpcFetch = vi.fn().mockResolvedValue(
-      Response.json({
-        email: 'owner@example.com',
-        type: 'NEW_ORGANIZATION',
-        organization_name: 'New Store',
-        expires_at: '2026-06-14T00:00:00.000Z',
-      }),
+      Response.json([
+        {
+          valid: true,
+          email: 'owner@example.com',
+          scope: 'NEW_ORGANIZATION',
+          organization_name: 'New Store',
+          expires_at: '2026-06-14T00:00:00.000Z',
+        },
+      ]),
     )
     vi.stubGlobal('fetch', rpcFetch)
 
@@ -31,7 +34,7 @@ describe('invitation HTTP contract', () => {
       data: {
         email: 'owner@example.com',
         type: 'NEW_ORGANIZATION',
-        organizationName: 'New Store',
+        organization_name: 'New Store',
       },
     })
     expect(rpcFetch).toHaveBeenCalledWith(
@@ -67,6 +70,9 @@ describe('invitation HTTP contract', () => {
     const document = await (
       await createApp().request('/openapi.json', {}, testEnv)
     ).json<{
+      components: {
+        schemas: Record<string, unknown>
+      }
       paths: Record<
         string,
         Record<string, { operationId?: string; security?: unknown[] }>
@@ -93,5 +99,18 @@ describe('invitation HTTP contract', () => {
         post: { operationId: 'resendInvitation' },
       },
     })
+
+    const validateResponse = JSON.stringify(
+      document.components.schemas.ValidateInvitationResponse,
+    )
+    const responseMeta = JSON.stringify(
+      document.components.schemas.ResponseMeta,
+    )
+
+    expect(validateResponse).toContain('organization_name')
+    expect(validateResponse).toContain('expires_at')
+    expect(validateResponse).not.toContain('organizationName')
+    expect(responseMeta).toContain('request_id')
+    expect(responseMeta).not.toContain('requestId')
   })
 })

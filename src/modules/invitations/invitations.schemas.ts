@@ -23,6 +23,20 @@ export const InvitationSummarySchema = InvitationPreviewSchema.extend({
   createdAt: z.iso.datetime(),
 }).openapi('InvitationSummary')
 
+const InvitationPreviewResponseSchema = z.object({
+  email: z.email(),
+  type: InvitationTypeSchema,
+  organization_name: z.string().nullable(),
+  expires_at: z.iso.datetime(),
+})
+
+const InvitationSummaryResponseSchema =
+  InvitationPreviewResponseSchema.extend({
+    id: z.uuid(),
+    status: InvitationStatusSchema,
+    created_at: z.iso.datetime(),
+  })
+
 export const ValidateInvitationQuerySchema = z.object({
   token: z.string().min(20).openapi({
     param: { name: 'token', in: 'query' },
@@ -121,6 +135,14 @@ export const AcceptedInvitationSchema = z
   })
   .openapi('AcceptedInvitation')
 
+const AcceptedInvitationResponseSchema = z.object({
+  user_id: z.uuid(),
+  invitation_id: z.uuid(),
+  organization_id: z.uuid().nullable(),
+  type: InvitationTypeSchema,
+  accepted_at: z.iso.datetime(),
+})
+
 export const CancelledInvitationSchema = z
   .object({
     cancelled: z.literal(true),
@@ -129,15 +151,15 @@ export const CancelledInvitationSchema = z
 
 export const ValidateInvitationResponseSchema = createSuccessSchema(
   'ValidateInvitationResponse',
-  InvitationPreviewSchema,
+  InvitationPreviewResponseSchema,
 )
 export const CreateInvitationResponseSchema = createSuccessSchema(
   'CreateInvitationResponse',
-  InvitationSummarySchema,
+  InvitationSummaryResponseSchema,
 )
 export const AcceptInvitationResponseSchema = createSuccessSchema(
   'AcceptInvitationResponse',
-  AcceptedInvitationSchema,
+  AcceptedInvitationResponseSchema,
 )
 export const CancelInvitationResponseSchema = createSuccessSchema(
   'CancelInvitationResponse',
