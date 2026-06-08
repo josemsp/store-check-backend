@@ -1,3 +1,0 @@
--- Reserved migration number for the original RPC contract document.
--- Executable RPC implementations begin in 017_invitations.sql and later
--- feature migrations.
