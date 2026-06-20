@@ -1,84 +1,158 @@
-import { z } from "@hono/zod-openapi";
-
 import { AppError } from "../../shared/errors/app-error";
 import { ErrorCode } from "../../shared/errors/error-codes";
-import { createAdminSupabaseClient } from "../../shared/supabase/admin";
-import type { InvitationRepository } from "./invitations.ports";
-import {
+import type {
   AcceptInvitationInput,
+  AcceptedInvitation,
   CancelInvitationInput,
   CreateInvitationInput,
+  CreateInvitationResult,
+  InvitationValidateResult,
   ResendInvitationInput,
+  ResendInvitationResult,
+  SearchOrganizationInvitations,
+  SearchOrganizationInvitationsResult,
+  SearchPlatformInvitations,
+  SearchPlatformInvitationsResult,
 } from "./invitations.types";
+import { RpcErrorSchema } from "./invitations.schemas";
+import {
+  RpcName,
+  SupabaseAdminClient,
+  SupabaseClient,
+} from "../../shared/types/db";
 
-const RpcErrorSchema = z.object({
-  message: z.string().optional(),
-  details: z.string().nullable().optional(),
-  hint: z.string().nullable().optional(),
-  code: z.string().optional(),
-});
+export interface InvitationSearch {
+  searchByPlatform(
+    params: SearchPlatformInvitations,
+  ): Promise<SearchPlatformInvitationsResult>;
+  searchByOrganization(
+    params: SearchOrganizationInvitations,
+  ): Promise<SearchOrganizationInvitationsResult>;
+}
+
+export interface GetLinkParams {
+  email: string;
+  redirectTo: string;
+  data: Record<string, unknown>;
+}
+
+export interface InvitationRepository extends InvitationSearch {
+  validate(tokenHash: string): Promise<InvitationValidateResult | null>;
+  create(input: CreateInvitationInput): Promise<CreateInvitationResult | null>;
+  accept(input: AcceptInvitationInput): Promise<AcceptedInvitation | null>;
+  cancel(input: CancelInvitationInput): Promise<void>;
+  resend(input: ResendInvitationInput): Promise<ResendInvitationResult | null>;
+  getLink(params: GetLinkParams): Promise<string>;
+}
 
 export class SupabaseInvitationRepository implements InvitationRepository {
   constructor(
-    private readonly supabase: ReturnType<typeof createAdminSupabaseClient>,
+    private readonly supabase: SupabaseClient,
+    private readonly supabaseAdmin: SupabaseAdminClient,
   ) {}
 
-  async validate(tokenHash: string) {
-    const { data, error } = await this.supabase.rpc("validate_invitation", {
-      p_token_hash: tokenHash,
-    });
-
-    if (error) {
-      throw this.throwRpcError(error);
-    }
-
-    const result = data?.[0];
-
-    return result ?? null;
+  async validate(tokenHash: string): Promise<InvitationValidateResult | null> {
+    return this.callRpc(
+      "validate_invitation",
+      { p_token_hash: tokenHash },
+      true,
+    );
   }
 
-  async create(input: CreateInvitationInput) {
-    const { data, error } = await this.supabase.rpc("create_invitation", input);
-
-    if (error) {
-      throw this.throwRpcError(error);
-    }
-
-    const result = data?.[0];
-
-    return result ?? null;
+  async create(
+    input: CreateInvitationInput,
+  ): Promise<CreateInvitationResult | null> {
+    return this.callRpc("create_invitation", input, true);
   }
 
-  async accept(input: AcceptInvitationInput) {
-    const { data, error } = await this.supabase.rpc("accept_invitation", input);
-
-    if (error) {
-      throw this.throwRpcError(error);
-    }
-
-    const result = data?.[0];
-
-    return result ?? null;
+  async accept(
+    input: AcceptInvitationInput,
+  ): Promise<AcceptedInvitation | null> {
+    return this.callRpc("accept_invitation", input, true);
   }
 
   async cancel(input: CancelInvitationInput): Promise<void> {
-    const { error } = await this.supabase.rpc("cancel_invitation", input);
-
-    if (error) {
-      throw this.throwRpcError(error);
-    }
+    await this.callRpc("cancel_invitation", input);
   }
 
-  async resend(input: ResendInvitationInput) {
-    const { data, error } = await this.supabase.rpc("resend_invitation", input);
+  async resend(
+    input: ResendInvitationInput,
+  ): Promise<ResendInvitationResult | null> {
+    return this.callRpc("resend_invitation", input, true);
+  }
+
+  async getLink(params: GetLinkParams): Promise<string> {
+    const { data, error } = await this.supabaseAdmin.auth.admin.generateLink({
+      type: "magiclink",
+      email: params.email,
+      options: {
+        redirectTo: params.redirectTo,
+        data: params.data,
+      },
+    });
+
+    if (error) {
+      throw new AppError({
+        code: ErrorCode.INTERNAL_ERROR,
+        message: "The invitation operation could not be completed.",
+        status: 500,
+        cause: error,
+      });
+    }
+
+    return data.properties.action_link;
+  }
+
+  async searchByPlatform(
+    params: SearchPlatformInvitations,
+  ): Promise<SearchPlatformInvitationsResult> {
+    return this.callRpc("search_platform_invitations", {
+      p_limit: params.p_limit ?? 50,
+      p_offset: params.p_offset ?? 0,
+      ...(params.p_search && { p_search: params.p_search }),
+      ...(params.p_scope && { p_scope: params.p_scope }),
+      ...(params.p_status && { p_status: params.p_status }),
+    });
+  }
+
+  async searchByOrganization(
+    params: SearchOrganizationInvitations,
+  ): Promise<SearchOrganizationInvitationsResult> {
+    return this.callRpc("search_organization_invitations", {
+      p_organization_id: params.p_organization_id,
+      p_limit: params.p_limit ?? 50,
+      p_offset: params.p_offset ?? 0,
+      ...(params.p_search && { p_search: params.p_search }),
+      ...(params.p_status && { p_status: params.p_status }),
+    });
+  }
+
+  private async callRpc<T>(
+    name: RpcName,
+    args: Record<string, unknown>,
+    single?: false,
+  ): Promise<T>;
+  private async callRpc<T>(
+    name: RpcName,
+    args: Record<string, unknown>,
+    single: true,
+  ): Promise<T | null>;
+  private async callRpc<T>(
+    name: RpcName,
+    args: Record<string, unknown>,
+    single?: boolean,
+  ): Promise<T | null> {
+    const { data, error } = await this.supabase.rpc(name, args);
 
     if (error) {
       throw this.throwRpcError(error);
     }
 
-    const result = data?.[0];
+    if (single) {
+      return (data as T[])?.[0] ?? null;
+    }
 
-    return result ?? null;
+    return data as T;
   }
 
   private throwRpcError(payload: unknown): never {
@@ -104,6 +178,7 @@ export class SupabaseInvitationRepository implements InvitationRepository {
       ROLE_REQUIRED: [422, ErrorCode.VALIDATION_ERROR],
       FORBIDDEN: [403, ErrorCode.FORBIDDEN],
     } as const;
+
     const match = Object.entries(knownErrors).find(([key]) =>
       message.includes(key),
     );

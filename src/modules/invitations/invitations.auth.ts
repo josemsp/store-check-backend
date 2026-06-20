@@ -3,7 +3,21 @@ import { ErrorCode } from '../../shared/errors/error-codes'
 import type { createAdminSupabaseClient } from '../../shared/supabase/admin'
 import { createUserSupabaseClient } from '../../shared/supabase/client'
 import type { Env } from '../../shared/types/env'
-import type { AuthUserGateway } from './invitations.ports'
+export interface AuthUser {
+  id: string;
+  email: string;
+  fullName: string;
+}
+
+export interface AuthUserGateway {
+  getUser(accessToken: string): Promise<AuthUser | null>;
+  createUser(input: {
+    email: string;
+    password: string;
+    fullName: string;
+  }): Promise<{ id: string }>;
+  deleteUser(userId: string): Promise<void>;
+}
 
 export class SupabaseAuthUserGateway implements AuthUserGateway {
   constructor(

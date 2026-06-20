@@ -1,27 +1,49 @@
 import { AppError } from "../../shared/errors/app-error";
 import { ErrorCode } from "../../shared/errors/error-codes";
+import type { Env } from "../../shared/types/env";
 import {
   generateInvitationToken,
   hashInvitationToken,
 } from "../../shared/utils/invitation-token";
+import type { AuthUserGateway } from "./invitations.auth";
+import type { InvitationMailer } from "./invitations.mailer";
 import type {
-  AuthUserGateway,
-  InvitationMailer,
   InvitationRepository,
-  InvitationsServiceI,
-} from "./invitations.ports";
+  InvitationSearch,
+} from "./invitations.repository";
 import type {
   AcceptedInvitationServiceResult,
-  CreateInvitationInput,
   CreateInvitationServiceInput,
   CreateInvitationServiceResult,
+  SearchOrganizationInvitations,
+  SearchOrganizationInvitationsResult,
+  SearchPlatformInvitations,
+  SearchPlatformInvitationsResult,
   ValidateInvitationServiceResult,
 } from "./invitations.types";
+
+export interface InvitationsServiceI extends InvitationSearch {
+  validate(token: string): Promise<ValidateInvitationServiceResult>;
+  create(
+    input: CreateInvitationServiceInput,
+  ): Promise<CreateInvitationServiceResult>;
+  accept(
+    input: { token: string; password?: string; fullName?: string },
+    accessToken?: string,
+  ): Promise<AcceptedInvitationServiceResult>;
+  cancel(actorUserId: string, invitationId: string): Promise<void>;
+  resend(
+    actorUserId: string,
+    invitationId: string,
+    expiresInDays?: number,
+  ): Promise<CreateInvitationServiceResult>;
+}
 
 interface InvitationsServiceDependencies {
   repository: InvitationRepository;
   auth: AuthUserGateway;
   mailer: InvitationMailer;
+  env: Env;
   now?: () => Date;
   generateToken?: () => string;
 }
@@ -30,21 +52,17 @@ export class InvitationsService implements InvitationsServiceI {
   private readonly repository: InvitationRepository;
   private readonly auth: AuthUserGateway;
   private readonly mailer: InvitationMailer;
+  private readonly env: Env;
   private readonly now: () => Date;
   private readonly generateToken: () => string;
 
-  constructor({
-    repository,
-    auth,
-    mailer,
-    now = () => new Date(),
-    generateToken = generateInvitationToken,
-  }: InvitationsServiceDependencies) {
-    this.repository = repository;
-    this.auth = auth;
-    this.mailer = mailer;
-    this.now = now;
-    this.generateToken = generateToken;
+  constructor(deps: InvitationsServiceDependencies) {
+    this.repository = deps.repository;
+    this.auth = deps.auth;
+    this.mailer = deps.mailer;
+    this.env = deps.env;
+    this.now = deps.now ?? (() => new Date());
+    this.generateToken = deps.generateToken ?? generateInvitationToken;
   }
 
   async validate(token: string): Promise<ValidateInvitationServiceResult> {
@@ -72,36 +90,35 @@ export class InvitationsService implements InvitationsServiceI {
     input: CreateInvitationServiceInput,
   ): Promise<CreateInvitationServiceResult> {
     const token = this.generateToken();
-    const expiresAt = this.expiresAt(input.expiresInDays);
+    const p_expires_at = this.expiresAt(input.expires_in_days || 7);
     const p_token_hash = await hashInvitationToken(token);
 
-    const args: CreateInvitationInput = {
+    const invitation = await this.repository.create({
       p_email: input.email,
-      p_expires_at: expiresAt,
-      p_invited_by_user_id: input.actorUserId,
+      p_expires_at,
       p_scope: input.type,
       p_token_hash,
-    };
-
-    if (input.locationIds !== undefined) {
-      args.p_location_ids = input.locationIds;
-    }
-    if (input.newOrganization !== undefined) {
-      args.p_new_organization = input.newOrganization;
-    }
-    if (input.organizationId !== undefined) {
-      args.p_organization_id = input.organizationId;
-    }
-    if (input.platformRole !== undefined) {
-      args.p_platform_role = input.platformRole;
-    }
-    if (input.roleIds !== undefined) {
-      args.p_role_ids = input.roleIds;
-    }
-
-    const invitation = await this.repository.create(args);
+      ...(input.location_ids !== undefined && {
+        p_location_ids: input.location_ids,
+      }),
+      ...(input.new_organization_name !== undefined && {
+        p_new_organization_name: input.new_organization_name,
+      }),
+      ...(input.new_organization_slug !== undefined && {
+        p_new_organization_slug: input.new_organization_slug,
+      }),
+      ...(input.organization_id !== undefined && {
+        p_organization_id: input.organization_id,
+      }),
+      ...(input.platform_role !== undefined && {
+        p_platform_role: input.platform_role,
+      }),
+      ...(input.role_ids !== undefined && { p_role_ids: input.role_ids }),
+    });
+    console.log("invitation", invitation);
 
     if (!invitation) {
+      console.log("no invitation");
       throw new AppError({
         code: ErrorCode.INTERNAL_ERROR,
         message: "The invitation could not be created.",
@@ -110,19 +127,29 @@ export class InvitationsService implements InvitationsServiceI {
     }
 
     try {
+      console.log("action link");
+      const actionLink = await this.repository.getLink({
+        email: invitation.email,
+        redirectTo: `${this.env.FRONTEND_URL}/invitations/accept`,
+        data: {
+          owner_id: invitation.invited_by_user_id,
+          role: invitation.scope,
+          invitation_token: token,
+        },
+      });
+      console.log("actionLink", actionLink);
+
       await this.mailer.sendInvitation({
         email: invitation.email,
-        token,
+        actionLink,
         expiresAt: invitation.expires_at,
         type: invitation.scope,
         organizationName: invitation.organization_name,
       });
     } catch (error) {
+      console.log("error", error);
       try {
-        await this.repository.cancel({
-          p_invited_by_user_id: input.actorUserId,
-          p_invitation_id: invitation.id,
-        });
+        await this.repository.cancel({ p_invitation_id: invitation.id });
       } catch (compensationError) {
         console.error("Failed to compensate invitation creation", {
           compensationError,
@@ -133,15 +160,7 @@ export class InvitationsService implements InvitationsServiceI {
       throw error;
     }
 
-    return {
-      id: invitation.id,
-      email: invitation.email,
-      type: invitation.scope,
-      status: invitation.status as "PENDING",
-      organization_name: invitation.organization_name,
-      expires_at: invitation.expires_at,
-      created_at: invitation.created_at,
-    };
+    return this.toServiceResult(invitation);
   }
 
   async accept(
@@ -174,14 +193,6 @@ export class InvitationsService implements InvitationsServiceI {
       });
     }
 
-    if (!existingUser && (!input.password || !input.fullName)) {
-      throw new AppError({
-        code: ErrorCode.VALIDATION_ERROR,
-        message: "password and fullName are required to create a new account.",
-        status: 422,
-      });
-    }
-
     let user: { id: string };
     let fullName: string;
     let createdUser = false;
@@ -190,12 +201,21 @@ export class InvitationsService implements InvitationsServiceI {
       user = existingUser;
       fullName = existingUser.fullName;
     } else {
+      if (!input.password || !input.fullName) {
+        throw new AppError({
+          code: ErrorCode.VALIDATION_ERROR,
+          message:
+            "password and fullName are required to create a new account.",
+          status: 422,
+        });
+      }
+
       user = await this.auth.createUser({
         email: invitation.email,
-        password: input.password as string,
-        fullName: input.fullName as string,
+        password: input.password,
+        fullName: input.fullName,
       });
-      fullName = input.fullName as string;
+      fullName = input.fullName;
       createdUser = true;
     }
 
@@ -229,11 +249,8 @@ export class InvitationsService implements InvitationsServiceI {
     }
   }
 
-  async cancel(actorUserId: string, invitationId: string): Promise<void> {
-    await this.repository.cancel({
-      p_invited_by_user_id: actorUserId,
-      p_invitation_id: invitationId,
-    });
+  async cancel(invitationId: string): Promise<void> {
+    await this.repository.cancel({ p_invitation_id: invitationId });
   }
 
   async resend(
@@ -257,18 +274,52 @@ export class InvitationsService implements InvitationsServiceI {
       });
     }
 
+    const actionLink = await this.repository.getLink({
+      email: invitation.email,
+      redirectTo: `${this.env.FRONTEND_URL}/invitations/accept`,
+      data: {
+        owner_id: invitation.invited_by_user_id,
+        role: invitation.scope,
+        invitation_token: token,
+      },
+    });
+
     await this.mailer.sendInvitation({
       email: invitation.email,
-      token,
+      actionLink,
       expiresAt: invitation.expires_at,
       type: invitation.scope,
       organizationName: invitation.organization_name,
     });
 
+    return this.toServiceResult(invitation);
+  }
+
+  async searchByPlatform(
+    input: SearchPlatformInvitations,
+  ): Promise<SearchPlatformInvitationsResult> {
+    return this.repository.searchByPlatform(input);
+  }
+
+  async searchByOrganization(
+    input: SearchOrganizationInvitations,
+  ): Promise<SearchOrganizationInvitationsResult> {
+    return this.repository.searchByOrganization(input);
+  }
+
+  private toServiceResult(invitation: {
+    id: string;
+    email: string;
+    scope: string;
+    status: string;
+    organization_name: string;
+    expires_at: string;
+    created_at: string;
+  }): CreateInvitationServiceResult {
     return {
       id: invitation.id,
       email: invitation.email,
-      type: invitation.scope,
+      type: invitation.scope as CreateInvitationServiceResult["type"],
       status: invitation.status as "PENDING",
       organization_name: invitation.organization_name,
       expires_at: invitation.expires_at,

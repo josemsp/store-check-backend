@@ -2,34 +2,37 @@ import z from "zod";
 import { Database } from "../../shared/supabase/types";
 import { CreateInvitationSchema } from "./invitations.schemas";
 
-export const InvitationType = {
-  NEW_ORGANIZATION: "NEW_ORGANIZATION",
-  ORGANIZATION: "ORGANIZATION",
-  PLATFORM: "PLATFORM",
-} as const;
-
-export interface InvitationPreview {
-  email: string;
-  expiresAt: string;
-  organizationName: string | null;
-  type: InvitationType;
-}
-export interface InvitationSummary extends InvitationPreview {
-  id: string;
-  status: "PENDING";
-  createdAt: string;
-}
-
 // Service
 export type CreateInvitation = z.infer<typeof CreateInvitationSchema>;
 
-export type CreateInvitationServiceInput = CreateInvitation & {
-  actorUserId: string;
+export type CreateInvitationServiceInput = {
+  email: CreateInvitationInput["p_email"];
+  expires_in_days?: number;
+  location_ids?: CreateInvitationInput["p_location_ids"];
+  new_organization_name: CreateInvitationInput["p_new_organization_name"];
+  new_organization_slug: CreateInvitationInput["p_new_organization_slug"];
+  organization_id?: CreateInvitationInput["p_organization_id"];
+  platform_role?: CreateInvitationInput["p_platform_role"];
+  role_ids?: CreateInvitationInput["p_role_ids"];
+  type: CreateInvitationInput["p_scope"];
 };
 
+type InvitationStatus = Database["public"]["Enums"]["invitation_status"];
+
+export type SearchPlatformInvitations =
+  Database["public"]["Functions"]["search_platform_invitations"]["Args"];
+
+export type SearchPlatformInvitationsResult =
+  Database["public"]["Functions"]["search_platform_invitations"]["Returns"];
+
+export type SearchOrganizationInvitations =
+  Database["public"]["Functions"]["search_organization_invitations"]["Args"];
+
+export type SearchOrganizationInvitationsResult =
+  Database["public"]["Functions"]["search_organization_invitations"]["Returns"];
+
 // rpc types (functions)
-export type InvitationType =
-  (typeof InvitationType)[keyof typeof InvitationType];
+export type InvitationType = Database["public"]["Enums"]["invitation_scope"];
 
 export type InvitationValidateResult =
   Database["public"]["Functions"]["validate_invitation"]["Returns"][0];
@@ -63,13 +66,13 @@ export interface ValidateInvitationServiceResult {
 }
 
 export interface CreateInvitationServiceResult {
-  id: string;
-  email: string;
+  id: ResendInvitationResult["id"];
+  email: ResendInvitationResult["email"];
   type: InvitationType;
   status: "PENDING";
-  organization_name: string | null;
-  expires_at: string;
-  created_at: string;
+  organization_name: ResendInvitationResult["organization_name"];
+  expires_at: ResendInvitationResult["expires_at"];
+  created_at: ResendInvitationResult["created_at"];
 }
 
 export interface AcceptedInvitationServiceResult {
@@ -79,4 +82,3 @@ export interface AcceptedInvitationServiceResult {
   type: InvitationType;
   accepted_at: string;
 }
-

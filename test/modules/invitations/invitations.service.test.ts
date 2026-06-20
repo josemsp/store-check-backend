@@ -2,11 +2,10 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { AppError } from '../../../src/shared/errors/app-error'
 import { InvitationsService } from '../../../src/modules/invitations/invitations.service'
-import type {
-  AuthUserGateway,
-  InvitationMailer,
-  InvitationRepository,
-} from '../../../src/modules/invitations/invitations.ports'
+import type { AuthUserGateway } from '../../../src/modules/invitations/invitations.auth'
+import type { InvitationMailer } from '../../../src/modules/invitations/invitations.mailer'
+import type { InvitationRepository } from '../../../src/modules/invitations/invitations.repository'
+import { testEnv } from '../../helpers/env'
 
 function createRepository(
   overrides: Partial<InvitationRepository> = {},
@@ -15,8 +14,11 @@ function createRepository(
     accept: vi.fn(),
     cancel: vi.fn(),
     create: vi.fn(),
+    getLink: vi.fn(),
     resend: vi.fn(),
     validate: vi.fn(),
+    searchByPlatform: vi.fn(),
+    searchByOrganization: vi.fn(),
     ...overrides,
   }
 }
@@ -49,6 +51,7 @@ describe('InvitationsService', () => {
       auth: createAuthGateway(),
       mailer,
       repository: createRepository({ validate }),
+      env: testEnv,
     })
 
     const result = await service.validate('raw-secret-token')
@@ -96,6 +99,7 @@ describe('InvitationsService', () => {
       auth,
       mailer,
       repository,
+      env: testEnv,
     })
 
     await expect(
@@ -139,6 +143,7 @@ describe('InvitationsService', () => {
           valid: true,
         }),
       }),
+      env: testEnv,
     })
 
     await service.accept(
@@ -170,6 +175,7 @@ describe('InvitationsService', () => {
           valid: true,
         }),
       }),
+      env: testEnv,
     })
 
     await expect(
@@ -191,25 +197,25 @@ describe('InvitationsService', () => {
       created_at: '2026-06-07T00:00:00.000Z',
     } as any)
     const sendInvitation = vi.fn().mockResolvedValue(undefined)
+    const getLink = vi.fn().mockResolvedValue('https://supabase.localhost/auth/v1/verify?token=...')
     const service = new InvitationsService({
       auth: createAuthGateway(),
       generateToken: () => 'raw-secret-token',
       mailer: { sendInvitation },
       now: () => new Date('2026-06-07T00:00:00.000Z'),
-      repository: createRepository({ create }),
+      repository: createRepository({ create, getLink }),
+      env: testEnv,
     })
 
     const result = await service.create({
-      actorUserId: 'admin-id',
+      invited_by_user_id: 'admin-id',
       email: 'owner@example.com',
       type: 'NEW_ORGANIZATION',
-      roleIds: [],
-      locationIds: [],
-      newOrganization: {
-        name: 'New Store',
-        slug: 'new-store',
-      },
-      expiresInDays: 7,
+      role_ids: [],
+      location_ids: [],
+      new_organization_name: 'New Store',
+      new_organization_slug: 'new-store',
+      expires_in_days: 7,
     })
 
     const persistedInvitation = create.mock.calls[0]?.[0]
@@ -222,7 +228,7 @@ describe('InvitationsService', () => {
       expect.objectContaining({ token: 'raw-secret-token' }),
     )
     expect(sendInvitation).toHaveBeenCalledWith(
-      expect.objectContaining({ token: 'raw-secret-token' }),
+      expect.objectContaining({ actionLink: 'https://supabase.localhost/auth/v1/verify?token=...' }),
     )
     expect(result).not.toHaveProperty('token')
     expect(result).not.toHaveProperty('tokenHash')
@@ -232,6 +238,7 @@ describe('InvitationsService', () => {
     const cancel = vi
       .fn<InvitationRepository['cancel']>()
       .mockResolvedValue(undefined)
+    const getLink = vi.fn().mockResolvedValue('https://supabase.localhost/auth/v1/verify?token=...')
     const service = new InvitationsService({
       auth: createAuthGateway(),
       generateToken: () => 'raw-secret-token',
@@ -251,21 +258,21 @@ describe('InvitationsService', () => {
           status: 'PENDING',
           created_at: '2026-06-07T00:00:00.000Z',
         } as any),
+        getLink,
       }),
+      env: testEnv,
     })
 
     await expect(
       service.create({
-        actorUserId: 'admin-id',
+        invited_by_user_id: 'admin-id',
         email: 'owner@example.com',
         type: 'NEW_ORGANIZATION',
-        roleIds: [],
-        locationIds: [],
-        newOrganization: {
-          name: 'New Store',
-          slug: 'new-store',
-        },
-        expiresInDays: 7,
+        role_ids: [],
+        location_ids: [],
+        new_organization_name: 'New Store',
+        new_organization_slug: 'new-store',
+        expires_in_days: 7,
       }),
     ).rejects.toThrow('Email provider unavailable')
     expect(cancel).toHaveBeenCalledWith({

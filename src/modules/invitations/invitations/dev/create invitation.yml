@@ -1,0 +1,29 @@
+info:
+  name: create invitation
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: "{{host}}/{{api_v}}/invitations"
+  headers:
+    - name: Authorization
+      value: "Bearer {{auth_token}}"
+    - name: Content-Type
+      value: application/json
+  body:
+    type: json
+    data: |-
+      {
+          "email": "jose_salazar_@outlook.com",
+          "type": "NEW_ORGANIZATION",
+          "expires_in_days": 8,
+          "new_organization_name": "company test"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -1,0 +1,47 @@
+info:
+  name: get token
+  type: http
+  seq: 1
+
+http:
+  method: POST
+  url: https://bjldwsbwotplhaagipiu.supabase.co/auth/v1/token?grant_type=password
+  headers:
+    - name: apikey
+      value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJqbGR3c2J3b3RwbGhhYWdpcGl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3OTEwMTYsImV4cCI6MjA5NjM2NzAxNn0.INnpGmBypY8t_RJUs61ssD7HK6MtHe3sTVLeGMaxCyY
+    - name: Content-Type
+      value: application/json
+  params:
+    - name: grant_type
+      value: password
+      type: query
+  body:
+    type: json
+    data: |-
+      {
+        "email": "salperadmin@email.com",
+        "password": "7777777"
+      }
+  auth: inherit
+
+runtime:
+  scripts:
+    - type: after-response
+      code: |-
+        const body = res.getBody();
+
+        if (!body.access_token) {
+          throw new Error("No se encontró access_token");
+        }
+
+        bru.setVar("auth_token", body.access_token);
+        bru.setGlobalVar("auth_token", body.access_token);
+
+        console.log("Token runtime:", bru.getVar("auth_token"));
+        console.log("Token global:", bru.getGlobalVar("auth_token"));
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

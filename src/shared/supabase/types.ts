@@ -2431,32 +2431,38 @@ export type Database = {
       roles: {
         Row: {
           active: boolean
+          code: string | null
           created_at: string
           description: string | null
           id: string
           is_system: boolean
           name: string
           organization_id: string | null
+          system_role: Database["public"]["Enums"]["system_role_code"] | null
           updated_at: string
         }
         Insert: {
           active?: boolean
+          code?: string | null
           created_at?: string
           description?: string | null
           id?: string
           is_system?: boolean
           name: string
           organization_id?: string | null
+          system_role?: Database["public"]["Enums"]["system_role_code"] | null
           updated_at?: string
         }
         Update: {
           active?: boolean
+          code?: string | null
           created_at?: string
           description?: string | null
           id?: string
           is_system?: boolean
           name?: string
           organization_id?: string | null
+          system_role?: Database["public"]["Enums"]["system_role_code"] | null
           updated_at?: string
         }
         Relationships: [
@@ -3235,17 +3241,41 @@ export type Database = {
         Args: { target_organization_id: string }
         Returns: boolean
       }
-      cancel_invitation: {
-        Args: { p_invitation_id: string; p_invited_by_user_id: string }
-        Returns: boolean
+      cancel_invitation: { Args: { p_invitation_id: string }; Returns: boolean }
+      create_custom_role: {
+        Args: {
+          p_actor_user_id: string
+          p_description?: string
+          p_name: string
+          p_organization_id: string
+          p_permission_codes?: string[]
+        }
+        Returns: {
+          active: boolean
+          code: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_system: boolean
+          name: string
+          organization_id: string | null
+          system_role: Database["public"]["Enums"]["system_role_code"] | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "roles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       create_invitation: {
         Args: {
           p_email: string
           p_expires_at: string
-          p_invited_by_user_id: string
           p_location_ids?: string[]
-          p_new_organization?: Json
+          p_new_organization_name?: string
+          p_new_organization_slug?: string
           p_organization_id?: string
           p_platform_role?: Database["public"]["Enums"]["platform_admin_role"]
           p_role_ids?: string[]
@@ -3273,6 +3303,35 @@ export type Database = {
         }[]
       }
       current_user_id: { Args: never; Returns: string }
+      debug_invitation_access: {
+        Args: never
+        Returns: {
+          auth_user_id: string
+          invitation_status_values: Database["public"]["Enums"]["invitation_status"][]
+          invitations_count: number
+          is_platform_admin: boolean
+          pending_invitations_count: number
+          platform_role: Database["public"]["Enums"]["platform_admin_role"]
+        }[]
+      }
+      get_current_user_profile: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          email: string
+          is_platform_admin: boolean
+          member_id: string
+          member_status: Database["public"]["Enums"]["member_status"]
+          name: string
+          organization_id: string
+          organization_name: string
+          organization_slug: string
+          organization_status: Database["public"]["Enums"]["organization_status"]
+          phone: string
+          platform_role: Database["public"]["Enums"]["platform_admin_role"]
+          user_id: string
+        }[]
+      }
       get_member_id: {
         Args: { target_organization_id: string }
         Returns: string
@@ -3327,6 +3386,39 @@ export type Database = {
       is_platform_admin_user: { Args: { p_user_id: string }; Returns: boolean }
       is_root: { Args: never; Returns: boolean }
       is_root_user: { Args: { p_user_id: string }; Returns: boolean }
+      list_organization_users: {
+        Args: { target_organization_id: string }
+        Returns: {
+          avatar_url: string
+          email: string
+          joined_at: string
+          location_id: string
+          location_name: string
+          member_id: string
+          member_status: Database["public"]["Enums"]["member_status"]
+          name: string
+          phone: string
+          role_id: string
+          role_name: string
+          user_id: string
+        }[]
+      }
+      list_platform_users: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          created_at: string
+          email: string
+          is_platform_admin: boolean
+          member_status: Database["public"]["Enums"]["member_status"]
+          name: string
+          organization_id: string
+          organization_name: string
+          phone: string
+          platform_role: Database["public"]["Enums"]["platform_admin_role"]
+          user_id: string
+        }[]
+      }
       resend_invitation: {
         Args: {
           p_expires_at: string
@@ -3351,6 +3443,73 @@ export type Database = {
           role_ids: string[]
           scope: Database["public"]["Enums"]["invitation_scope"]
           status: Database["public"]["Enums"]["invitation_status"]
+          updated_at: string
+        }[]
+      }
+      search_organization_invitations: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_organization_id: string
+          p_search?: string
+          p_status?: Database["public"]["Enums"]["invitation_status"]
+        }
+        Returns: {
+          accepted_at: string
+          accepted_by_email: string
+          accepted_by_name: string
+          accepted_by_user_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by_email: string
+          invited_by_name: string
+          invited_by_user_id: string
+          last_sent_at: string
+          location_ids: string[]
+          location_names: string[]
+          role_ids: string[]
+          role_names: string[]
+          status: Database["public"]["Enums"]["invitation_status"]
+          total_count: number
+          updated_at: string
+        }[]
+      }
+      search_platform_invitations: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_scope?: Database["public"]["Enums"]["invitation_scope"]
+          p_search?: string
+          p_status?: Database["public"]["Enums"]["invitation_status"]
+        }
+        Returns: {
+          accepted_at: string
+          accepted_by_email: string
+          accepted_by_name: string
+          accepted_by_user_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by_email: string
+          invited_by_name: string
+          invited_by_user_id: string
+          last_sent_at: string
+          location_ids: string[]
+          location_names: string[]
+          new_organization_name: string
+          new_organization_slug: string
+          organization_id: string
+          organization_name: string
+          organization_slug: string
+          platform_role: Database["public"]["Enums"]["platform_admin_role"]
+          role_ids: string[]
+          role_names: string[]
+          scope: Database["public"]["Enums"]["invitation_scope"]
+          status: Database["public"]["Enums"]["invitation_status"]
+          total_count: number
           updated_at: string
         }[]
       }
@@ -3424,6 +3583,12 @@ export type Database = {
       purchase_status: "DRAFT" | "CONFIRMED" | "CANCELLED" | "VOIDED"
       subscription_plan: "FREE" | "BASIC" | "PRO" | "ENTERPRISE"
       subscription_status: "ACTIVE" | "PAST_DUE" | "CANCELLED" | "TRIALING"
+      system_role_code:
+        | "OWNER"
+        | "MANAGER"
+        | "WAREHOUSE"
+        | "CASHIER"
+        | "EMPLOYEE"
       transfer_attachment_type:
         | "DEPARTURE_PHOTO"
         | "RECEPTION_PHOTO"
@@ -3623,6 +3788,13 @@ export const Constants = {
       purchase_status: ["DRAFT", "CONFIRMED", "CANCELLED", "VOIDED"],
       subscription_plan: ["FREE", "BASIC", "PRO", "ENTERPRISE"],
       subscription_status: ["ACTIVE", "PAST_DUE", "CANCELLED", "TRIALING"],
+      system_role_code: [
+        "OWNER",
+        "MANAGER",
+        "WAREHOUSE",
+        "CASHIER",
+        "EMPLOYEE",
+      ],
       transfer_attachment_type: [
         "DEPARTURE_PHOTO",
         "RECEPTION_PHOTO",

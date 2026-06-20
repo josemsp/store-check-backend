@@ -1,54 +1,44 @@
-import { AppError } from '../../shared/errors/app-error'
-import { ErrorCode } from '../../shared/errors/error-codes'
-import type { Env } from '../../shared/types/env'
-import type { InvitationMailer } from './invitations.ports'
+import { Resend } from "resend";
+import { AppError } from "../../shared/errors/app-error";
+import { ErrorCode } from "../../shared/errors/error-codes";
+import type { Env } from "../../shared/types/env";
+import { invitationEmailTemplate } from "../emails/templates/invitation-email-template";
 
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;')
+export interface InvitationMailer {
+  sendInvitation(input: {
+    email: string;
+    actionLink: string;
+    expiresAt: string;
+    type: string;
+    organizationName: string;
+  }): Promise<void>;
 }
 
 export class ResendInvitationMailer implements InvitationMailer {
   constructor(private readonly env: Env) {}
 
   async sendInvitation(
-    input: Parameters<InvitationMailer['sendInvitation']>[0],
+    input: Parameters<InvitationMailer["sendInvitation"]>[0],
   ): Promise<void> {
-    const invitationUrl = new URL('/invitations/accept', this.env.FRONTEND_URL)
-    invitationUrl.searchParams.set('token', input.token)
-    const organization = input.organizationName
-      ? ` para ${escapeHtml(input.organizationName)}`
-      : ''
+    const { actionLink, expiresAt, organizationName, email } = input;
+    const resend = new Resend(this.env.RESEND_API_KEY);
 
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.env.RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: this.env.EMAIL_FROM,
-        to: [input.email],
-        subject: 'Invitacion a Store Check',
-        html: [
-          '<h1>Te invitaron a Store Check</h1>',
-          `<p>Recibiste una invitacion${organization}.</p>`,
-          `<p><a href="${escapeHtml(invitationUrl.toString())}">Aceptar invitacion</a></p>`,
-          `<p>Este enlace vence el ${escapeHtml(input.expiresAt)}.</p>`,
-        ].join(''),
+    const response = await resend.emails.send({
+      from: "STORE-CHECK <onboarding@resend.dev>",
+      to: [email],
+      subject: "Invitación para unirse a Store Check",
+      html: invitationEmailTemplate({
+        actionLink,
+        expiresAt,
+        organizationName,
       }),
-    })
-
-    if (!response.ok) {
+    });
+    if (response.error) {
       throw new AppError({
         code: ErrorCode.INTERNAL_ERROR,
-        message: 'The invitation was created but the email could not be sent.',
+        message: response.error.message,
         status: 502,
-      })
+      });
     }
   }
 }
