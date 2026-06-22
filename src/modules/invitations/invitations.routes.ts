@@ -251,11 +251,9 @@ invitationsRoutes.openapi(searchRoute, async (c) => {
 
   const is_platform_admin = c.get("currentUser").is_platform_admin;
   const is_root = c.get("currentUser").platform_role === "ROOT";
-  console.log("is_root", is_root, is_platform_admin);
 
   if (is_root && is_platform_admin) {
     const result = await createService(c).searchByPlatform(args);
-    console.log("result", result);
     return successResponse(c, result, 200);
   }
 

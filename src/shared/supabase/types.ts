@@ -3284,36 +3284,34 @@ export type Database = {
         }
         Returns: {
           accepted_at: string
+          accepted_by_email: string
+          accepted_by_name: string
           accepted_by_user_id: string
           created_at: string
           email: string
           expires_at: string
           id: string
+          invited_by_email: string
+          invited_by_name: string
           invited_by_user_id: string
+          last_sent_at: string
           location_ids: string[]
-          metadata: Json
+          location_names: string[]
+          new_organization_name: string
+          new_organization_slug: string
           organization_id: string
           organization_name: string
           organization_slug: string
           platform_role: Database["public"]["Enums"]["platform_admin_role"]
           role_ids: string[]
+          role_names: string[]
           scope: Database["public"]["Enums"]["invitation_scope"]
           status: Database["public"]["Enums"]["invitation_status"]
+          total_count: number
           updated_at: string
         }[]
       }
       current_user_id: { Args: never; Returns: string }
-      debug_invitation_access: {
-        Args: never
-        Returns: {
-          auth_user_id: string
-          invitation_status_values: Database["public"]["Enums"]["invitation_status"][]
-          invitations_count: number
-          is_platform_admin: boolean
-          pending_invitations_count: number
-          platform_role: Database["public"]["Enums"]["platform_admin_role"]
-        }[]
-      }
       get_current_user_profile: {
         Args: never
         Returns: {
@@ -3335,6 +3333,37 @@ export type Database = {
       get_member_id: {
         Args: { target_organization_id: string }
         Returns: string
+      }
+      get_platform_invitation: {
+        Args: { p_invitation_id: string }
+        Returns: {
+          accepted_at: string
+          accepted_by_email: string
+          accepted_by_name: string
+          accepted_by_user_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by_email: string
+          invited_by_name: string
+          invited_by_user_id: string
+          last_sent_at: string
+          location_ids: string[]
+          location_names: string[]
+          new_organization_name: string
+          new_organization_slug: string
+          organization_id: string
+          organization_name: string
+          organization_slug: string
+          platform_role: Database["public"]["Enums"]["platform_admin_role"]
+          role_ids: string[]
+          role_names: string[]
+          scope: Database["public"]["Enums"]["invitation_scope"]
+          status: Database["public"]["Enums"]["invitation_status"]
+          total_count: number
+          updated_at: string
+        }[]
       }
       has_permission: {
         Args: { permission_key: string; target_organization_id: string }
