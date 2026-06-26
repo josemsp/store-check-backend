@@ -10,7 +10,7 @@ export interface AppVariables {
   requestId: string;
   user: User;
   userSupabase: ReturnType<typeof createUserSupabaseClient>;
-  currentUser: Database["public"]["Functions"]["get_current_user_profile"]["Returns"][0];
+  currentUser: Database["public"]["Functions"]["get_current_user"]["Returns"][0];
 }
 
 export interface AppBindings {

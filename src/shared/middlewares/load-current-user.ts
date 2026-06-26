@@ -8,9 +8,7 @@ export const loadCurrentUser = createMiddleware<AppBindings>(
   async (c, next) => {
     const supabase = c.get("userSupabase");
 
-    const { data, error } = await supabase
-      .rpc("get_current_user_profile")
-      .single();
+    const { data, error } = await supabase.rpc("get_current_user").single();
 
     if (error || !data) {
       throw new AppError({

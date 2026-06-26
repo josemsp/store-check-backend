@@ -19,5 +19,9 @@ export const OPENAPI_DOCUMENT = {
       name: 'Invitations',
       description: 'Invitation-only registration and membership provisioning.',
     },
+    {
+      name: 'Users',
+      description: 'User profile management and platform user administration.',
+    },
   ],
 } as const

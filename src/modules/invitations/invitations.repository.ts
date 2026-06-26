@@ -149,10 +149,10 @@ export class SupabaseInvitationRepository implements InvitationRepository {
     }
 
     if (single) {
-      return (data as T[])?.[0] ?? null;
+      return (data as unknown as T[])?.[0] ?? null;
     }
 
-    return data as T;
+    return data as unknown as T;
   }
 
   private throwRpcError(payload: unknown): never {

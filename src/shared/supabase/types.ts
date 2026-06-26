@@ -1614,6 +1614,9 @@ export type Database = {
           id: string
           joined_at: string | null
           organization_id: string
+          removal_reason: string | null
+          removed_at: string | null
+          removed_by_user_id: string | null
           status: Database["public"]["Enums"]["member_status"]
           updated_at: string
           user_id: string
@@ -1623,6 +1626,9 @@ export type Database = {
           id?: string
           joined_at?: string | null
           organization_id: string
+          removal_reason?: string | null
+          removed_at?: string | null
+          removed_by_user_id?: string | null
           status?: Database["public"]["Enums"]["member_status"]
           updated_at?: string
           user_id: string
@@ -1632,6 +1638,9 @@ export type Database = {
           id?: string
           joined_at?: string | null
           organization_id?: string
+          removal_reason?: string | null
+          removed_at?: string | null
+          removed_by_user_id?: string | null
           status?: Database["public"]["Enums"]["member_status"]
           updated_at?: string
           user_id?: string
@@ -1642,6 +1651,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_members_removed_by_user_id_fkey"
+            columns: ["removed_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -1726,22 +1742,22 @@ export type Database = {
       }
       permissions: {
         Row: {
+          code: string
           created_at: string
           description: string | null
           id: string
-          key: string
         }
         Insert: {
+          code: string
           created_at?: string
           description?: string | null
           id?: string
-          key: string
         }
         Update: {
+          code?: string
           created_at?: string
           description?: string | null
           id?: string
-          key?: string
         }
         Relationships: []
       }
@@ -3311,7 +3327,64 @@ export type Database = {
           updated_at: string
         }[]
       }
+      create_organization_role: {
+        Args: {
+          p_description?: string
+          p_name: string
+          p_organization_id: string
+        }
+        Returns: {
+          active: boolean
+          code: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_system: boolean
+          name: string
+          organization_id: string | null
+          system_role: Database["public"]["Enums"]["system_role_code"] | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "roles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       current_user_id: { Args: never; Returns: string }
+      deactivate_organization_role: {
+        Args: { p_organization_id: string; p_role_id: string }
+        Returns: boolean
+      }
+      get_current_user: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          email: string
+          is_platform_admin: boolean
+          joined_at: string
+          location_ids: string[]
+          location_names: string[]
+          member_created_at: string
+          member_id: string
+          member_status: Database["public"]["Enums"]["member_status"]
+          name: string
+          organization_id: string
+          organization_name: string
+          organization_slug: string
+          organization_status: Database["public"]["Enums"]["organization_status"]
+          permission_codes: string[]
+          permission_ids: string[]
+          phone: string
+          platform_role: Database["public"]["Enums"]["platform_admin_role"]
+          role_codes: string[]
+          role_ids: string[]
+          role_names: string[]
+          system_roles: Database["public"]["Enums"]["system_role_code"][]
+          user_id: string
+        }[]
+      }
       get_current_user_profile: {
         Args: never
         Returns: {
@@ -3415,38 +3488,13 @@ export type Database = {
       is_platform_admin_user: { Args: { p_user_id: string }; Returns: boolean }
       is_root: { Args: never; Returns: boolean }
       is_root_user: { Args: { p_user_id: string }; Returns: boolean }
-      list_organization_users: {
-        Args: { target_organization_id: string }
-        Returns: {
-          avatar_url: string
-          email: string
-          joined_at: string
-          location_id: string
-          location_name: string
-          member_id: string
-          member_status: Database["public"]["Enums"]["member_status"]
-          name: string
-          phone: string
-          role_id: string
-          role_name: string
-          user_id: string
-        }[]
-      }
-      list_platform_users: {
-        Args: never
-        Returns: {
-          avatar_url: string
-          created_at: string
-          email: string
-          is_platform_admin: boolean
-          member_status: Database["public"]["Enums"]["member_status"]
-          name: string
-          organization_id: string
-          organization_name: string
-          phone: string
-          platform_role: Database["public"]["Enums"]["platform_admin_role"]
-          user_id: string
-        }[]
+      remove_organization_member: {
+        Args: {
+          p_member_id: string
+          p_organization_id: string
+          p_reason?: string
+        }
+        Returns: boolean
       }
       resend_invitation: {
         Args: {
@@ -3474,6 +3522,10 @@ export type Database = {
           status: Database["public"]["Enums"]["invitation_status"]
           updated_at: string
         }[]
+      }
+      restore_organization_member: {
+        Args: { p_member_id: string; p_organization_id: string }
+        Returns: boolean
       }
       search_organization_invitations: {
         Args: {
@@ -3503,6 +3555,33 @@ export type Database = {
           status: Database["public"]["Enums"]["invitation_status"]
           total_count: number
           updated_at: string
+        }[]
+      }
+      search_organization_users: {
+        Args: {
+          p_limit?: number
+          p_location_id?: string
+          p_offset?: number
+          p_organization_id: string
+          p_role_id?: string
+          p_search?: string
+          p_status?: Database["public"]["Enums"]["member_status"]
+        }
+        Returns: {
+          avatar_url: string
+          created_at: string
+          email: string
+          joined_at: string
+          location_ids: string[]
+          location_names: string[]
+          member_id: string
+          member_status: Database["public"]["Enums"]["member_status"]
+          name: string
+          phone: string
+          role_ids: string[]
+          role_names: string[]
+          total_count: number
+          user_id: string
         }[]
       }
       search_platform_invitations: {
@@ -3542,11 +3621,161 @@ export type Database = {
           updated_at: string
         }[]
       }
+      search_platform_users: {
+        Args: {
+          p_is_platform_admin?: boolean
+          p_limit?: number
+          p_member_status?: Database["public"]["Enums"]["member_status"]
+          p_offset?: number
+          p_organization_id?: string
+          p_platform_role?: Database["public"]["Enums"]["platform_admin_role"]
+          p_search?: string
+        }
+        Returns: {
+          avatar_url: string
+          created_at: string
+          email: string
+          is_platform_admin: boolean
+          member_statuses: Database["public"]["Enums"]["member_status"][]
+          name: string
+          organization_ids: string[]
+          organization_names: string[]
+          phone: string
+          platform_role: Database["public"]["Enums"]["platform_admin_role"]
+          total_count: number
+          user_id: string
+        }[]
+      }
       seed_organization_defaults: {
         Args: { p_organization_id: string }
         Returns: string
       }
+      set_member_roles: {
+        Args: {
+          p_member_id: string
+          p_organization_id: string
+          p_role_ids: string[]
+        }
+        Returns: boolean
+      }
+      set_role_permissions: {
+        Args: {
+          p_organization_id: string
+          p_permission_codes: string[]
+          p_role_id: string
+        }
+        Returns: boolean
+      }
       storage_org_id_from_path: { Args: { path: string }; Returns: string }
+      update_current_user_profile: {
+        Args: { p_avatar_url?: string; p_name?: string; p_phone?: string }
+        Returns: {
+          avatar_url: string
+          email: string
+          is_platform_admin: boolean
+          member_id: string
+          member_status: Database["public"]["Enums"]["member_status"]
+          name: string
+          organization_id: string
+          organization_name: string
+          organization_slug: string
+          organization_status: Database["public"]["Enums"]["organization_status"]
+          phone: string
+          platform_role: Database["public"]["Enums"]["platform_admin_role"]
+          user_id: string
+        }[]
+      }
+      update_organization: {
+        Args: { p_name?: string; p_organization_id: string; p_slug?: string }
+        Returns: {
+          created_at: string
+          deleted_at: string | null
+          id: string
+          name: string
+          slug: string
+          status: Database["public"]["Enums"]["organization_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "organizations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_organization_member: {
+        Args: {
+          p_member_id: string
+          p_organization_id: string
+          p_status?: Database["public"]["Enums"]["member_status"]
+        }
+        Returns: {
+          created_at: string
+          id: string
+          joined_at: string | null
+          organization_id: string
+          removal_reason: string | null
+          removed_at: string | null
+          removed_by_user_id: string | null
+          status: Database["public"]["Enums"]["member_status"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "organization_members"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_organization_role: {
+        Args: {
+          p_active?: boolean
+          p_description?: string
+          p_name?: string
+          p_organization_id: string
+          p_role_id: string
+        }
+        Returns: {
+          active: boolean
+          code: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_system: boolean
+          name: string
+          organization_id: string | null
+          system_role: Database["public"]["Enums"]["system_role_code"] | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "roles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_organization_status: {
+        Args: {
+          p_organization_id: string
+          p_status: Database["public"]["Enums"]["organization_status"]
+        }
+        Returns: {
+          created_at: string
+          deleted_at: string | null
+          id: string
+          name: string
+          slug: string
+          status: Database["public"]["Enums"]["organization_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "organizations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       validate_invitation: {
         Args: { p_token_hash: string }
         Returns: {

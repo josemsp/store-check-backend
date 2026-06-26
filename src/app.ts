@@ -5,6 +5,7 @@ import { secureHeaders } from "hono/secure-headers";
 
 import { healthRoutes } from "./modules/health/health.routes";
 import { invitationsRoutes } from "./modules/invitations/invitations.routes";
+import { usersRoutes } from "./modules/users/users.routes";
 import { ErrorCode } from "./shared/errors/error-codes";
 import { handleError } from "./shared/middlewares/error.middleware";
 import { requestContext } from "./shared/middlewares/request-context.middleware";
@@ -72,6 +73,7 @@ export function createApp(): OpenAPIHono<AppBindings> {
 
   app.route(`${API_PREFIX}/health`, healthRoutes);
   app.route(`${API_PREFIX}/invitations`, invitationsRoutes);
+  app.route(`${API_PREFIX}/users`, usersRoutes);
 
   app.doc31(OPENAPI_PATH, (c) => ({
     ...OPENAPI_DOCUMENT,
