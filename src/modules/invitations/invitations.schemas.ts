@@ -173,8 +173,8 @@ export const CancelInvitationResponseSchema = createSuccessSchema(
 );
 
 export const SearchInvitationsQuerySchema = z.object({
-  p_limit: z.number().optional().default(10),
-  p_offset: z.number().optional().default(0),
+  p_limit: z.coerce.number().optional().default(10),
+  p_offset: z.coerce.number().optional().default(0),
   p_scope: InvitationTypeEnum.optional(),
   p_search: z.string().optional(),
   p_status: InvitationStatusEnum.optional(),
