@@ -47,21 +47,21 @@ export function createApp(): OpenAPIHono<AppBindings> {
     },
   });
 
-  app.use("*", requestContext);
-  app.use("*", supabaseContext);
-  app.use("*", secureHeaders());
   app.use(
     "*",
     cors({
-      allowHeaders: ["Authorization", "Content-Type", "X-Request-Id"],
-      allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      exposeHeaders: ["X-Request-Id"],
       origin: (origin, c) => {
         const allowedOrigins = getAllowedOrigins((c.env as Env).CORS_ORIGINS);
         return allowedOrigins.includes(origin) ? origin : null;
       },
+      allowHeaders: ["Authorization", "Content-Type", "X-Request-Id"],
+      allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      exposeHeaders: ["X-Request-Id"],
     }),
   );
+  app.use("*", requestContext);
+  app.use("*", supabaseContext);
+  app.use("*", secureHeaders());
 
   app.openAPIRegistry.registerComponent("securitySchemes", "BearerAuth", {
     type: "http",
