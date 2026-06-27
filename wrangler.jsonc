@@ -8,6 +8,7 @@
     "enabled": true
   },
   "vars": {
-    "ENVIRONMENT": "development"
+    "ENVIRONMENT": "development",
+    "CORS_ORIGINS": "http://localhost:5173"
   }
 }
